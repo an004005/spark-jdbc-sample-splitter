@@ -1,11 +1,10 @@
 package org.apache.spark.sql.sampling
 
-import org.apache.spark.sql.connector.read.InputPartition
 import org.apache.spark.sql.execution.datasources.jdbc.JDBCOptions
-import org.apache.spark.sql.jdbc.JdbcDialects
+import org.apache.spark.sql.jdbc.{JdbcDialect, JdbcDialects}
 import Utils.{getSamplePercent, getSamplingCount}
 
-import java.sql.Connection
+import java.sql.{Connection, ResultSet, Statement}
 
 abstract class JdbcPartitionDialect extends Serializable {
 
@@ -23,11 +22,10 @@ abstract class JdbcPartitionDialect extends Serializable {
     s"SELECT COUNT(1) FROM $table"
   }
 
-  def getPartitionColumn(conn: Connection, options: JDBCOptions): String = {
-    val table = options.tableOrQuery
-    val dialect = JdbcDialects.get(options.url)
-    Utils.tryResources(conn.prepareStatement(dialect.getSchemaQuery(table))) {
-      stmt => stmt.getMetaData.getColumnName(1)
+  def getPartitionColumn(stmt: Statement, dialect: JdbcDialect, options: JDBCOptions): String = {
+    Utils.ResourceManager { use =>
+      val rs = use(stmt.executeQuery(dialect.getSchemaQuery(options.tableOrQuery)))
+      rs.getMetaData.getColumnName(1)
     }
   }
 }
