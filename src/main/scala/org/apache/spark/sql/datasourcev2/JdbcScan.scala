@@ -2,13 +2,12 @@ package org.apache.spark.sql.datasourcev2
 
 import org.apache.spark.sql.SparkSession
 import org.apache.spark.sql.connector.read.{Batch, InputPartition, PartitionReaderFactory, Scan}
-import org.apache.spark.sql.execution.datasources.jdbc.JdbcUtils.getCatalystType
 import org.apache.spark.sql.execution.datasources.jdbc.{JDBCOptions, JdbcUtils}
 import org.apache.spark.sql.jdbc.JdbcDialects
 import org.apache.spark.sql.sampling.{JdbcPartitionDialects, JdbcSampleHandler, Utils}
 import org.apache.spark.sql.types.StructType
 
-import scala.collection.mutable.ListBuffer
+import scala.collection.mutable.ArrayBuffer
 
 case class JdbcInputPartition(whereClause: String, idx: Int) extends InputPartition
 
@@ -26,15 +25,16 @@ case class JdbcScan(
     } else {
       val dialect = JdbcDialects.get(options.url)
       val partitionDialect = JdbcPartitionDialects.get(options.url)
-      val conn = JdbcUtils.createConnectionFactory(options)()
       val table = options.tableOrQuery
 
       Utils.ResourceManager {use =>
+        val conn = use(JdbcUtils.createConnectionFactory(options)())
         val stmt = use(conn.createStatement())
         stmt.setQueryTimeout(options.queryTimeout)
 
-        val partitionColumn = dialect.quoteIdentifier(
-          options.partitionColumn.getOrElse(partitionDialect.getPartitionColumn(stmt, dialect, options))
+        val partColumn = dialect.quoteIdentifier(
+          options.partitionColumn
+            .getOrElse(partitionDialect.getPartitionColumn(stmt, dialect, options))
         )
 
         val countQuery = partitionDialect.getCountQuery(table)
@@ -44,39 +44,41 @@ case class JdbcScan(
           rs.getLong(1)
         }
 
-        val samplingQuery = partitionDialect.getTableSamplingQuery(partitionColumn, table, totalCount)
-
-        val partitionPerCount = totalCount.toDouble / numPartitions
-        val partitionPoints = ListBuffer[Any]()
-        var samples = ListBuffer[Any]()
+        val samplingQuery = partitionDialect.getTableSamplingQuery(partColumn, table, totalCount)
+        val countBetweenPartition = (totalCount.toDouble / numPartitions).toInt
 
         Utils.ResourceManager { use =>
           val rs = use(stmt.executeQuery(samplingQuery))
           val handler = JdbcSampleHandler(rs)
+          val ans = ArrayBuffer[JdbcInputPartition]()
 
-          while (rs.next()) {
-            samples :+ handler.getter(rs)
+          // get samples and sort
+          val sortedSamples = new Iterator[Any] {
+            def hasNext: Boolean = rs.next()
+            def next(): Any = handler.getter(rs)
+          }.toList.sorted(handler.ordering)
+
+          // get partitioning points
+          val partPoints = (1 until numPartitions)
+            .map(i => handler.setter(sortedSamples(i * countBetweenPartition)))
+
+          var i: Int = 0
+          while (i <= partPoints.length) {
+            val whereClause =
+              if (i == 0) {
+                s"$partColumn < ${partPoints(i)} OR $partColumn is null"
+              } else if (i == partPoints.length) {
+                s"${partPoints(i - 1)} <= $partColumn"
+              } else {
+                s"$partColumn < ${partPoints(i - 1)} AND ${partPoints(i)} <= $partColumn"
+              }
+            ans += JdbcInputPartition(whereClause, i)
+            i += 1
           }
-          samples = handler.sorted(samples)
 
-          // until 확인하기
-          (1 until numPartitions).foreach(i =>
-            partitionPoints :+ handler.setter(samples(i * partitionPerCount.toInt))
-          )
-
-          // make where clause
-
-
+          ans.toArray
         }
-
-
       }
-
-
-
-
-
-    null
     }
   }
 

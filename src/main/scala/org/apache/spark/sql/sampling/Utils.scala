@@ -11,6 +11,7 @@ object Utils {
       }
 
       def closeAll(): Unit = {
+        // close reverse order of applied
         autoCloseables.flatMap(Option(_)).foreach(_.close())
       }
     }

@@ -7,7 +7,7 @@ case class JdbcSampleHandler(sqlType: Int) {
   val jdbcType: JdbcType = getJdbcType
   val getter: ResultSet => Any = jdbcType.getter
   val setter: Any => String = jdbcType.setter
-  def sorted(list: ListBuffer[Any]): ListBuffer[Any] = jdbcType.sorted(list)
+  val ordering: Ordering[Any] = jdbcType.ordering
 
   private def getJdbcType: JdbcType = {
     sqlType match {
@@ -44,15 +44,9 @@ object JdbcSampleHandler {
   def apply(rs: ResultSet): JdbcSampleHandler = {
     JdbcSampleHandler(rs.getMetaData.getColumnType(1))
   }
-
-  def main(args: Array[String]): Unit = {
-    val l: List[Any] = List(4,5,6,2,3)
-    println(l.asInstanceOf[List[Int]].sorted)
-
-  }
 }
 
-sealed trait JdbcType {
+private[sampling] sealed trait JdbcType {
   def getter: ResultSet => Any = this match {
     case StringType => rs => rs.getString(1)
     case IntegerType => rs => rs.getLong(1)
@@ -71,13 +65,13 @@ sealed trait JdbcType {
     case DateType => any => s"'${any.toString}'"
   }
 
-  def sorted(list: ListBuffer[Any]): ListBuffer[Any] = this match {
-    case IntegerType => list.asInstanceOf[ListBuffer[Long]].sorted.asInstanceOf[ListBuffer[Any]]
-    case FloatingPointType => list.asInstanceOf[ListBuffer[Double]].sorted.asInstanceOf[ListBuffer[Any]]
-    case BigDecimalType => list.asInstanceOf[ListBuffer[BigDecimal]].sorted.asInstanceOf[ListBuffer[Any]]
-    case StringType => list.asInstanceOf[ListBuffer[String]].sorted.asInstanceOf[ListBuffer[Any]]
-    case TimestampType => list.asInstanceOf[ListBuffer[Timestamp]].sortBy(_.getTime).asInstanceOf[ListBuffer[Any]]
-    case DateType => list.asInstanceOf[ListBuffer[Date]].sortBy(_.getTime).asInstanceOf[ListBuffer[Any]]
+  def ordering: Ordering[Any] = this match {
+    case StringType => Ordering.by(_.asInstanceOf[String])
+    case IntegerType => Ordering.by(_.asInstanceOf[Long])
+    case FloatingPointType => Ordering.by(_.asInstanceOf[Double])
+    case BigDecimalType => Ordering.by(_.asInstanceOf[BigDecimal])
+    case TimestampType => Ordering.by(_.asInstanceOf[Timestamp].getTime)
+    case DateType => Ordering.by(_.asInstanceOf[Date].getTime)
   }
 }
 private object StringType extends JdbcType
