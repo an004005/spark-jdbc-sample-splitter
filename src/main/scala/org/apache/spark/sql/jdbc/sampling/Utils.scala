@@ -1,18 +1,18 @@
-package org.apache.spark.sql.sampling
+package org.apache.spark.sql.jdbc.sampling
 
 object Utils {
   object ResourceManager {
     private class AutoCloseManager {
-      private[this] var autoCloseables = List[AutoCloseable]()
+      private[this] var autoCloseableList = List[AutoCloseable]()
 
       def apply[T <: AutoCloseable](autoCloseable: T): T = {
-        autoCloseables = autoCloseable :: autoCloseables
+        autoCloseableList = autoCloseable :: autoCloseableList
         autoCloseable
       }
 
       def closeAll(): Unit = {
         // close reverse order of applied
-        autoCloseables.flatMap(Option(_)).foreach(_.close())
+        autoCloseableList.flatMap(Option(_)).foreach(_.close())
       }
     }
 
@@ -33,19 +33,5 @@ object Utils {
         manager.closeAll()
       }
     }
-  }
-
-  def getSamplingCount(totalCount: Long): Long = {
-    if (totalCount < 1000) {
-      totalCount
-    } else {
-      totalCount / 100
-    }
-  }
-
-  def getSamplePercent(totalCount: Long): Double = {
-    BigDecimal((getSamplingCount(totalCount).toDouble / totalCount) * 100)
-      .setScale(2, BigDecimal.RoundingMode.HALF_UP)
-      .toDouble
   }
 }

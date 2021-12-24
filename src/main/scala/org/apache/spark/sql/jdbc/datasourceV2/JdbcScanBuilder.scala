@@ -1,4 +1,4 @@
-package org.apache.spark.sql.datasourcev2
+package org.apache.spark.sql.jdbc.datasourceV2
 
 import org.apache.spark.sql.SparkSession
 import org.apache.spark.sql.connector.read.{Scan, ScanBuilder}
@@ -12,17 +12,3 @@ case class JdbcScanBuilder(
   extends ScanBuilder {
   override def build(): Scan = JdbcScan(sparkSession, schema, options)
 }
-
-
-//JdbcDataSourcev2 : TableProvider, DataSourceRegister
-//
-//JdbcTable : Table, SupportRead
-//
-//JdbcScanBuilder : ScanBuilder
-//
-//JdbcScan : Scan, Batch (planInputParition)
-//
-//JdbcPartitionReaderFactory : PartitionReaderFactory
-//
-//JdbcPartitionReader  : PartitionReader<InternalRow>
-//(순서, 3.2와 비교하기)

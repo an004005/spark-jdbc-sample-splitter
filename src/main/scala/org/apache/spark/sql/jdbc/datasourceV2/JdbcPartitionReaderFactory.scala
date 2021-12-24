@@ -1,4 +1,4 @@
-package org.apache.spark.sql.datasourcev2
+package org.apache.spark.sql.jdbc.datasourceV2
 
 import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.connector.read.{InputPartition, PartitionReader, PartitionReaderFactory}
