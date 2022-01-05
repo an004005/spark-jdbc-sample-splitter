@@ -13,9 +13,12 @@ Spark's JDBC partition table strategy work well when `partitionColumn` is `LongT
 4. Sort samples based on `partitionColumn`
 5. Make sample partition through `numPartitions`
 6. Apply sample partition to the entire table
+## Test
+[Test with python](https://github.com/an004005/spark-jdbc-sample-splitter/blob/main/test/sampling%20split%20test.ipynb)
+### Sample Size
+The above test shows that the larger the sample size, the closer to ideal partition size. However, we should have to find proper sample size because the larger the sample size, the longer the sampling execution time. So we need to calculate the sample size from total number of data and `numPartitions`. But Im not good at proof of these things. **Please someone help me to calcuate to get proper sample size.**
 ## Why should have to partition evenly
 
-## Test
 
 ## To do
 - [ ] test using RDB (postgres)
