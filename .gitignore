@@ -3,6 +3,6 @@
 .idea/
 metastore_db/
 target
-project
+project/target
 .history
 .ipynb_checkpoints
